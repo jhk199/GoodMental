@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "624681641598",
+    "project_id": "good-mental-e8cd8",
+    "storage_bucket": "good-mental-e8cd8.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:624681641598:android:c60652ea7029785b515a2f",
+        "android_client_info": {
+          "package_name": "com.example.goodmental"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "624681641598-37em8chsju2kvld9ch64ig9m1g0n4sha.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpp01G65apvswEFC9st2VSpEiKLWDxAGA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "624681641598-37em8chsju2kvld9ch64ig9m1g0n4sha.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,5 +1,7 @@
 package com.example.goodmental.ui.home
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -7,119 +9,111 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
-import androidx.lifecycle.Observer
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.goodmental.LoginActivity
 import kotlinx.coroutines.*
 import com.example.goodmental.R
+import com.example.goodmental.extensions.getPatch
+import com.example.goodmental.ui.match_info.Match
+import com.example.goodmental.ui.match_info.MatchListAdapter
+import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import com.squareup.picasso.Picasso
 import io.ktor.client.*
-import io.ktor.client.features.json.*
-import io.ktor.client.features.json.serializer.*
 import io.ktor.client.request.*
-import kotlinx.serialization.json.buildJsonArray
 import org.json.JSONArray
-import org.json.JSONObject
-import java.lang.Exception
+
 
 class SummonerFragment : Fragment() {
 
-    private lateinit var summonerInfo : SummonerInformation
-    private val summonerViewModel: SummonerViewModel by activityViewModels()
-    var region = arrayOf("NA", "EUW" , "EUN" , "KR" , "JPN" , "OCE")
-    var regionArray = arrayOf("na1", "euw1", "eun1", "kr",  "jp1",  "oce1")
-    private var BASE_URL = "https://p9hog00lo9.execute-api.us-west-1.amazonaws.com/gmapi/"
+
+    private lateinit var patch : String
+    private lateinit var matchList : ArrayList<Match>
+    private lateinit var buttonDelete : Button
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var playerName: TextView
+    private lateinit var playerImage : ImageView
     private var DRAGON_URL = "https://ddragon.leagueoflegends.com"
-    private lateinit var summonerName : EditText
-    private lateinit var regionSpinner : Spinner
-    private lateinit var buttonSubmit : Button
 
     override fun onCreateView(
             inflater: LayoutInflater,
             container: ViewGroup?,
             savedInstanceState: Bundle?
     ): View? {
-//        summonerViewModel =
-//                ViewModelProvider(this).get(SummonerViewModel::class.java)
+
         val view = inflater.inflate(R.layout.fragment_summoner, container, false)
-        val textView: TextView = view.findViewById(R.id.text_home)
-        buttonSubmit = view.findViewById(R.id.button_summoner)
-        regionSpinner = view.findViewById(R.id.spinner_region)
-        summonerName = view.findViewById(R.id.editText_SummonerName)
-        summonerInfo = SummonerInformation("n/a")
-        val selectSpinner =
-                ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, region)
-        selectSpinner.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        regionSpinner.adapter = selectSpinner
+        matchList = ArrayList()
+        recyclerView = view.findViewById(R.id.recyclerView_summoner)
+        playerImage = view.findViewById(R.id.imageView_playerIcon)
+        playerName = view.findViewById(R.id.textView_name)
+        buttonDelete = view.findViewById(R.id.button_delete)
+        val sharedPreferences = this.activity?.getSharedPreferences("Pref", Context.MODE_PRIVATE)
+        val patchTest = sharedPreferences?.getString("patch", "null")
+        val iconTest = sharedPreferences?.getString("icon", "null")
+        val db = Firebase.firestore
+        val login = db.collection("summoner").document("App User")
 
-
-        buttonSubmit.setOnClickListener {
-            GlobalScope.launch {
-                try {
-                    //Log.d("patch", getPatch())
-                    val summUrl = "summoner"
-                    val matchUrl = "match"
-                    val summ = httpCall(summUrl, summonerName.text.toString())
-                    //Log.d("Summoner", summ.toString())
-                    val match = httpCall(matchUrl, summ)
-                    //Log.d("match", summ.toString())
-                    summonerInfo = SummonerInformation(match.toString())
-                    summonerViewModel.setInformation(summonerInfo)
-                } catch (e: Exception) {
-                    summonerInfo = SummonerInformation("Summoner doesn't exist")
-                    summonerViewModel.setInformation(summonerInfo)
-                }
+        GlobalScope.launch {
+            login.get().addOnSuccessListener { document ->
+                // Log.e("Doc datat", document.data?.get("name") as String)
+                playerName.text = document.data?.get("name") as String
             }
+            patch = getPatch()
+            login.collection("matches").orderBy("timestamp", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener { result ->
+                    for (document in result) {
+                        val name : String = document.get("champion") as String
+                        val url  = "$DRAGON_URL/cdn/$patch/img/champion/$name.png"
+                        val date : String = document.get("timestamp") as String
+                        val matchObject = Match(name, url, date)
+                        matchList.add(matchObject)
+                    }
+                    // Log.e("MatchList", matchList.toString())
+                    recyclerView.adapter = MatchListAdapter(matchList)
+                    recyclerView.layoutManager = LinearLayoutManager(context)
+                    recyclerView.setHasFixedSize(true)
+                }
+                .addOnFailureListener { exception ->
+                    Log.d("id", "Error getting documents: ", exception)
+                }
         }
+        Picasso.get().load("$DRAGON_URL/cdn/$patchTest/img/profileicon/$iconTest.png").into(playerImage)
 
-        summonerViewModel.getInformation().observe(viewLifecycleOwner, Observer {
-            summonerInfo -> summonerInfo.let {
-                textView.text = it.http
+        buttonDelete.setOnClickListener{
+            matchList.clear()
+            login.update("icon", "", "name", "", "region", "")
+            login.collection("matches")
+                .get()
+                .addOnSuccessListener { result ->
+                    for (document in result) {
+                        if(document.id != "template") {
+                           login.collection("matches").document(document.id).delete()
+                        }
+                    }
+                }
+                .addOnFailureListener { exception ->
+                    Log.d("id", "Error getting documents: ", exception)
+                }
+            login.collection("followedSumms")
+                .get()
+                .addOnSuccessListener { result ->
+                    for (document in result) {
+                        if(document.id != "template") {
+                            login.collection("followedSumms").document(document.id).delete()
+                        }
+                    }
+                }
+                .addOnFailureListener { exception ->
+                    Log.d("id", "Error getting documents: ", exception)
+                }
+            val intent = Intent(context, LoginActivity::class.java)
+            startActivity(intent)
         }
-        })
         return view
     }
-
-    private suspend fun getPatch() : String/*HashMap<String, Int>*/ {
-        val client = HttpClient()
-        val patchResponse : ByteArray = client.get("$DRAGON_URL/api/versions.json")
-        val jsonPatch  = JSONArray(String(patchResponse))
-        val patch = jsonPatch.get(0).toString()
-        val champResponse : String = client.get("$DRAGON_URL/cdn/$patch/data/en_US/champion.json")
-        val jsonChamp = JSONObject(champResponse).getJSONObject("data")
-//        for (i in 0 until jsonChamp.length()) {
-//            jsonChamp
-//        }
-        return jsonChamp.toString()
-    }
-
-    private suspend fun httpCall(url : String ?, endOfCall : String?) : String? {
-        val request = "$BASE_URL$url/na1/$endOfCall"
-        val client = HttpClient()
-        val response : String = client.get(request)
-        val json  = JSONObject(response)
-        client.close()
-        Log.d("response", json.toString())
-        if(url == "summoner") {
-            return json.getString("accountId")
-        }
-        else if (url == "match") {
-            val jsonArray = json.getJSONArray("matches")
-            val match1 = jsonArray.getJSONObject(0)
-            Log.d("Matches 0", match1.toString())
-            return match1.toString()
-            //return getMatches(jsonArray).toString()
-        }
-        return null
-    }
-
-    private fun getMatches(jsonArray: JSONArray) : ArrayList<String> {
-        val matchList = ArrayList<String>()
-        for (i in 0 until jsonArray.length()) {
-            val match = jsonArray.getJSONObject(i).getString("gameId")
-            matchList.add(match)
-        }
-        return matchList
-    }
-
 }
 
 
