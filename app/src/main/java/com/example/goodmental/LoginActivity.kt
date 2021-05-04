@@ -28,7 +28,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var buttonSubmit : Button
     private lateinit var errorText : TextView
     private lateinit var loading : ProgressBar
-    var region = arrayOf("NA", "EUW" , "EUN" , "KR" , "JPN" , "OCE")
+    var regionDisplay = arrayOf("NA", "EUW" , "EUN" , "KR" , "JPN" , "OCE")
     var regionArray = arrayOf("na1", "euw1", "eun1", "kr",  "jp1",  "oce1")
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,10 +56,10 @@ class LoginActivity : AppCompatActivity() {
             GlobalScope.launch(Dispatchers.IO) {
                 try {
 
-                    val region = regionArray[regionSpinner.selectedItemId.toInt()]
+                    val region = regionSpinner.selectedItemId.toInt()
                     val matchUrl = "match"
                     Log.d("1", "1")
-                    val summJson = httpCall(BASE_URL, "summoner", region, summonerName.text.toString())?.let {
+                    val summJson = httpCall(BASE_URL, "summoner", regionArray[region], summonerName.text.toString())?.let {
                         stringToJsonObject(
                             it
                         )
@@ -68,7 +68,7 @@ class LoginActivity : AppCompatActivity() {
                     val name = summJson?.getString("name")
                     val accountId = summJson?.getString("accountId")
                     val icon = summJson?.getString("profileIconId")
-                    val match = httpCall(BASE_URL, matchUrl, region, accountId)?.let { it1 -> stringToJsonArray(it1) }
+                    val match = httpCall(BASE_URL, matchUrl, regionArray[region], accountId)?.let { it1 -> stringToJsonArray(it1) }
                     if (match != null) {
                         for (i in 0 until 10) {
                             val userMatch = hashMapOf(
@@ -83,7 +83,7 @@ class LoginActivity : AppCompatActivity() {
                     }
 
                     db.collection("summoner").document("App User")
-                        .update("name", name, "region", region, "icon", icon)
+                        .update("name", name, "region", regionDisplay[region], "icon", icon)
                         .addOnSuccessListener { documentReference ->
                             Log.d("Success", "DocumentSnapshot added with ID: $documentReference")
                         }
@@ -124,7 +124,7 @@ class LoginActivity : AppCompatActivity() {
 
     private fun spinner() {
         val selectSpinner =
-            ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, region)
+            ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, regionDisplay)
         selectSpinner.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         regionSpinner.adapter = selectSpinner
     }

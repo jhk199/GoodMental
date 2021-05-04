@@ -1,13 +1,30 @@
 package com.example.goodmental.ui.followed_summs
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
+import android.util.Log
+import androidx.lifecycle.*
+import com.example.goodmental.extensions.FirebaseProfileService
+import com.example.goodmental.ui.summoner_info.Summoner
+import kotlinx.coroutines.launch
 
 class FollowedViewModel : ViewModel() {
 
-    private val _text = MutableLiveData<String>().apply {
-        value = "This is followed summoners Fragment"
+    private val _summonerProfile = MutableLiveData<Summoner>()
+    val summonerProfile : LiveData<Summoner> = _summonerProfile
+    private val _followedSumms = MutableLiveData<List<Summoner>>()
+    val followedSumms: LiveData<List<Summoner>> = _followedSumms
+
+    fun updateAll() = viewModelScope.launch {
+        _summonerProfile.value = FirebaseProfileService.getProfileData()
+        _followedSumms.value = FirebaseProfileService.getFollowedSumms()
+        Log.e("Followed Summs", followedSumms.toString())
     }
-    val text: LiveData<String> = _text
+
+//    init {
+//        viewModelScope.launch {
+//            _summonerProfile.value = FirebaseProfileService.getProfileData()
+//            _followedSumms.value = FirebaseProfileService.getFollowedSumms()
+//            Log.e("Followed Summs", followedSumms.toString())
+//
+//        }
+//    }
 }

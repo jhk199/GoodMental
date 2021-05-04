@@ -1,5 +1,6 @@
 package com.example.goodmental.ui.followed_summs
 
+import android.content.Context
 import android.os.Bundle
 import android.text.TextUtils
 import android.util.Log
@@ -8,6 +9,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.goodmental.R
@@ -28,12 +31,13 @@ class FollowedFragment : Fragment() {
     private lateinit var regionSpinner: Spinner
     private lateinit var buttonSubmit: Button
     private lateinit var buttonDelete: Button
+    private lateinit var buttonRefresh : Button
     private lateinit var errorText: TextView
     private lateinit var loading: ProgressBar
     private lateinit var recyclerView: RecyclerView
-    private lateinit var summonerList: ArrayList<Summoner>
+    private lateinit var followedViewModel: FollowedViewModel
     private var submitBoolean = true
-    var region = arrayOf("NA", "EUW", "EUN", "KR", "JPN", "OCE")
+    var regionDisplay = arrayOf("NA", "EUW", "EUN", "KR", "JPN", "OCE")
     var regionArray = arrayOf("na1", "euw1", "eun1", "kr", "jp1", "oce1")
 
     override fun onCreateView(
@@ -41,46 +45,32 @@ class FollowedFragment : Fragment() {
             container: ViewGroup?,
             savedInstanceState: Bundle?
     ): View? {
+        followedViewModel =
+                ViewModelProvider(this).get(FollowedViewModel::class.java)
         val view = inflater.inflate(R.layout.fragment_followed, container, false)
         summonerName = view.findViewById(R.id.editText_followedSummonerName)
         regionSpinner = view.findViewById(R.id.spinner_followedRegion)
         buttonSubmit = view.findViewById(R.id.button_followedSummoner)
         buttonDelete = view.findViewById(R.id.button_followedDelete)
+        buttonRefresh = view.findViewById(R.id.button_refresh)
         errorText = view.findViewById(R.id.textView_followedError)
         loading = view.findViewById(R.id.progressBar_followedLoad)
+        recyclerView = view.findViewById(R.id.recyclerView_followed)
         // Picasso.get().isLoggingEnabled = true
         spinner()
-
-        summonerList = ArrayList()
-        recyclerView = view.findViewById(R.id.recyclerView_followed)
         val db = Firebase.firestore
         val followedSumms = db.collection("summoner").document("App User").collection("followedSumms")
-        GlobalScope.launch {
-            var patch = getPatch()
-            followedSumms
-                    .get()
-                    .addOnSuccessListener { result ->
-                        for (document in result) {
-                            if (document.id != "template") {
-                                val name: String = document.get("name") as String
-                                val icon = document.get("icon") as String
-                                val url = "$DRAGON_URL/cdn/$patch/img/profileicon/$icon.png"
-                                val summonerObject = Summoner(name, url, document.get("region") as String)
-                                summonerList.add(summonerObject)
-                            }
-                        }
-                        Log.e("MatchList", summonerList.toString())
-                        recyclerView.adapter = SummonerListAdapter(summonerList)
-                        recyclerView.layoutManager = LinearLayoutManager(context)
-                        recyclerView.setHasFixedSize(true)
-                    }
-        }
         buttonDelete.setOnClickListener{
-            summonerList.clear()
+            loading.visibility = View.VISIBLE
             followedSumms.get()
                     .addOnSuccessListener { result ->
                         for (document in result) {
                             if(document.id != "template") {
+                                followedSumms.document(document.id).collection("matches").get().addOnSuccessListener { result2 ->
+                                    for (document2 in result2) {
+                                        followedSumms.document(document.id).collection("matches").document(document2.id).delete()
+                                    }
+                                }
                                 followedSumms.document(document.id).delete()
                             }
                         }
@@ -88,6 +78,16 @@ class FollowedFragment : Fragment() {
                     .addOnFailureListener { exception ->
                         Log.d("id", "Error getting documents: ", exception)
                     }
+            activity?.runOnUiThread() {
+                run {
+                    val adapter = SummonerListAdapter()
+                    followedViewModel.updateAll()
+                    followedViewModel.followedSumms.observe(viewLifecycleOwner, Observer {
+                        adapter.submitList(it?.toMutableList())
+                    })
+                    loading.visibility = View.INVISIBLE
+                }
+            }
         }
         buttonSubmit.setOnClickListener {
             view.hideKeyboard()
@@ -97,6 +97,7 @@ class FollowedFragment : Fragment() {
             else {
                 loading.visibility = View.VISIBLE
                 GlobalScope.launch(Dispatchers.IO) {
+                    val patch = getPatch()
                     try {
                         val region = regionArray[regionSpinner.selectedItemId.toInt()]
                         val matchUrl = "match"
@@ -107,26 +108,17 @@ class FollowedFragment : Fragment() {
                             )
                         }
                         val name = summJson?.getString("name")
-                        followedSumms.get().addOnSuccessListener { result ->
-                            var exists by Delegates.notNull<Boolean>()
-                            for (document in result) {
-                                if (document.id == name) {
-                                    exists = true
-                                    break
-                                }
-                                exists = false
-                            }
-                        }
                         val accountId = summJson?.getString("accountId")
                         val icon = summJson?.getString("profileIconId")
                         val match = httpCall(BASE_URL, matchUrl, region, accountId)?.let { it1 -> stringToJsonArray(it1) }
                         if (name != null) {
                             val summoner = hashMapOf(
-                                    "icon" to icon,
+                                    "icon" to "$DRAGON_URL/cdn/$patch/img/profileicon/$icon.png",
                                     "name" to name,
-                                    "region" to region
+                                    "region" to regionDisplay[regionSpinner.selectedItemId.toInt()]
                             )
-                            followedSumms.document().set(summoner)
+                            followedSumms.document(name).set(summoner)
+
                         }
                         if (match != null) {
                             for (i in 0 until 10) {
@@ -137,14 +129,19 @@ class FollowedFragment : Fragment() {
                                         "timestamp" to getDateTime(match.getJSONObject(i).getString("timestamp"))
                                 )
                                 if (name != null) {
-                                    followedSumms.document().collection("matches").add(userMatch)
+                                    val summId = followedSumms.whereEqualTo("name", name).get()
+                                    followedSumms.document(name).collection("matches").add(userMatch)
                                 }
                             }
                         }
                         submitBoolean = true
                         activity?.runOnUiThread() {
                             run {
-                                recyclerView.adapter?.notifyDataSetChanged()
+                                val adapter = SummonerListAdapter()
+                                followedViewModel.updateAll()
+                                followedViewModel.followedSumms.observe(viewLifecycleOwner, Observer {
+                                    adapter.submitList(it?.toMutableList())
+                                })
                                 loading.visibility = View.INVISIBLE
                             }
                         }
@@ -157,14 +154,31 @@ class FollowedFragment : Fragment() {
                 }
             }
         }
-
-
         return view
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        recyclerView.apply {
+            val adapter = SummonerListAdapter()
+            recyclerView.adapter = adapter
+            recyclerView.layoutManager = LinearLayoutManager(context)
+            followedViewModel.updateAll()
+            followedViewModel.followedSumms.observe(viewLifecycleOwner, Observer {
+                adapter.submitList(it?.toMutableList())
+            })
+        }
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        Log.e("Attached!", context.toString())
     }
 
     private fun spinner() {
         val selectSpinner =
-                context?.let { ArrayAdapter(it, android.R.layout.simple_spinner_dropdown_item, region) }
+                context?.let { ArrayAdapter(it, android.R.layout.simple_spinner_dropdown_item, regionDisplay) }
         selectSpinner?.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         regionSpinner.adapter = selectSpinner
     }
@@ -172,8 +186,6 @@ class FollowedFragment : Fragment() {
     private fun toastError(text:String) {
         Toast.makeText(context,text, Toast.LENGTH_LONG).show()
     }
-
-
 }
 
 
