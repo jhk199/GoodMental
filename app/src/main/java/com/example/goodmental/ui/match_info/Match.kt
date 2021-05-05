@@ -10,14 +10,16 @@ import java.lang.Exception
 data class Match (val matchID : String,
                   val name: String,
                   val pictureURL: String,
-                  val date: String) {
+                  val date: String,
+                  val winLoss : String) {
     companion object {
         fun DocumentSnapshot.toMatch() : Match? {
             return try {
                 val name = getString("champion")!!
                 val pictureURL = getString("icon")!!
                 val date = getString("timestamp")!!
-                Match(id, name, pictureURL, date)
+                val winLoss = getString("winLoss")!!
+                Match(id, name, pictureURL, date, winLoss)
             } catch (e: Exception) {
                 Log.e(TAG, "Error converting user profile", e)
                 FirebaseCrashlytics.getInstance().log("Error converting user profile")

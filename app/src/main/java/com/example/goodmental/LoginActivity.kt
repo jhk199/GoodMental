@@ -10,12 +10,11 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.goodmental.extensions.*
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.gson.JsonArray
 import io.ktor.client.*
 import io.ktor.client.request.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
+import org.json.JSONObject
 import java.util.*
 
 
@@ -53,29 +52,46 @@ class LoginActivity : AppCompatActivity() {
             loading.visibility = View.VISIBLE
 
             view.hideKeyboard()
+            runBlocking {
+                launch(Dispatchers.Default) {
+
+                }
+            }
             GlobalScope.launch(Dispatchers.IO) {
                 try {
-
+                    val patch = getPatch()
                     val region = regionSpinner.selectedItemId.toInt()
                     val matchUrl = "match"
-                    Log.d("1", "1")
+                    val matchInfoUrl = "matchinfo"
                     val summJson = httpCall(BASE_URL, "summoner", regionArray[region], summonerName.text.toString())?.let {
                         stringToJsonObject(
                             it
                         )
                     }
-                    Log.d("1", "1")
                     val name = summJson?.getString("name")
                     val accountId = summJson?.getString("accountId")
                     val icon = summJson?.getString("profileIconId")
-                    val match = httpCall(BASE_URL, matchUrl, regionArray[region], accountId)?.let { it1 -> stringToJsonArray(it1) }
+                    val regionCall = regionArray[region]
+                    val matchLink = "$BASE_URL/$matchUrl/$regionCall/$accountId"
+                    val matchCall = httpCall(BASE_URL, matchUrl, regionArray[region], accountId)
+                    val match = matchCall?.let { stringToJsonArray(it) }
                     if (match != null) {
                         for (i in 0 until 10) {
+                            val champion = getChamp(match.getJSONObject(i).getString("champion"))
+                            val gameID =  match.getJSONObject(i).getString("gameId")
+                            val lane = match.getJSONObject(i).getString("lane")
+                            val timestamp = getDateTime(match.getJSONObject(i).getString("timestamp"))
+                            val icon = "$DRAGON_URL/cdn/$patch/img/champion/$champion.png"
+                            val matchInfo = match.getJSONObject(i)?.getString("gameId")
+                            val gameJson = httpCall(BASE_URL, matchInfoUrl, regionArray[region], matchInfo)
+                            val winLoss = getWinLoss(gameJson.toString(), name!!)
                             val userMatch = hashMapOf(
-                                "champion" to getChamp(match.getJSONObject(i).getString("champion")),
-                                "gameID" to match.getJSONObject(i).getString("gameId"),
-                                "lane" to match.getJSONObject(i).getString("lane"),
-                                "timestamp" to getDateTime(match.getJSONObject(i).getString("timestamp"))
+                                    "champion" to champion,
+                                    "gameID" to gameID,
+                                    "lane" to lane,
+                                    "timestamp" to timestamp,
+                                    "icon" to icon,
+                                    "winLoss" to winLoss
                             )
                             db.collection("summoner").document("App User").collection("matches").document()
                                 .set(userMatch)
@@ -90,8 +106,9 @@ class LoginActivity : AppCompatActivity() {
                         .addOnFailureListener { e ->
                             Log.w("Fail", "Error adding document", e)
                         }
+                    sharedPreferences.edit().putString("patch", patch).apply()
+                    sharedPreferences.edit().putString("matchLink", matchLink).apply()
                     sharedPreferences.edit().putString("icon", icon).apply()
-                    sharedPreferences.getString("icon", "iconFailed")?.let { Log.e("Icon", it) }
 
                     val intent = Intent(this@LoginActivity, SecondActivity::class.java)
                     startActivity(intent)

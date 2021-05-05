@@ -16,15 +16,5 @@ class FollowedViewModel : ViewModel() {
     fun updateAll() = viewModelScope.launch {
         _summonerProfile.value = FirebaseProfileService.getProfileData()
         _followedSumms.value = FirebaseProfileService.getFollowedSumms()
-        Log.e("Followed Summs", followedSumms.toString())
     }
-
-//    init {
-//        viewModelScope.launch {
-//            _summonerProfile.value = FirebaseProfileService.getProfileData()
-//            _followedSumms.value = FirebaseProfileService.getFollowedSumms()
-//            Log.e("Followed Summs", followedSumms.toString())
-//
-//        }
-//    }
 }

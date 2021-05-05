@@ -6,37 +6,8 @@
     android:layout_height="match_parent"
     tools:context=".ui.home.SummonerFragment">
 
-    <ScrollView
-        android:id="@+id/scrollView2"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="64dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/text_home"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="8dp"
-                android:textAlignment="center"
-                android:textSize="20sp" />
-
-        </LinearLayout>
-    </ScrollView>
-
     <Button
-        android:id="@+id/button_delete"
+        android:id="@+id/button_summonerDelete"
         style="@style/Widget.AppCompat.Button.Borderless.Colored"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -49,24 +20,39 @@
         android:text="Logout"
         android:textAppearance="@style/TextAppearance.AppCompat.Body1"
         android:typeface="normal"
-        app:layout_constraintBottom_toTopOf="@+id/recyclerView_summoner"
+        app:layout_constraintBottom_toTopOf="@+id/swipeToRefresh_summoner"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textView_name"
         app:rippleColor="#FF0000" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerView_summoner"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeToRefresh_summoner"
+        android:layout_width="wrap_content"
+        android:layout_height="0px"
+        android:layout_marginTop="32dp"
         android:layout_marginBottom="32dp"
-        android:paddingBottom="20dp"
+        android:layout_weight="1"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/imageView_playerIcon" />
+        app:layout_constraintTop_toBottomOf="@+id/imageView_playerIcon">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerView_summoner"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="32dp"
+            android:paddingBottom="20dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imageView_playerIcon" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
 
     <ImageView
         android:id="@+id/imageView_playerIcon"
@@ -92,5 +78,15 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/imageView_playerIcon"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/textView_summonerRegion"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="24dp"
+        android:fontFamily="@font/friz_quadrata_bold"
+        app:layout_constraintStart_toEndOf="@+id/imageView_playerIcon"
+        app:layout_constraintTop_toBottomOf="@+id/textView_name" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

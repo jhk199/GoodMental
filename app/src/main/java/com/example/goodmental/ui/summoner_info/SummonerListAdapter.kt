@@ -1,7 +1,6 @@
 package com.example.goodmental.ui.summoner_info
 
-import android.content.ContentValues.TAG
-import android.media.MediaPlayer.create
+import android.content.Intent
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -12,8 +11,8 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.example.goodmental.R
+import com.example.goodmental.FollowedSummsActivity
 import com.squareup.picasso.Picasso
-import java.net.URI.create
 
 class SummonerListAdapter : ListAdapter<Summoner, SummonerListAdapter.SummonerViewHolder>(SummonerComparator()) {
 
@@ -58,10 +57,19 @@ class SummonerListAdapter : ListAdapter<Summoner, SummonerListAdapter.SummonerVi
         holder.bindText(currentSummoner.name, holder.textViewName)
         holder.bindText(currentSummoner.region, holder.textViewRegion)
         Picasso.get().load(currentSummoner.pictureURL).into(holder.imageViewSumm)
+
+        holder.itemView.setOnClickListener {
+            val currentContext = holder.itemView.context
+            val intent = Intent(currentContext, FollowedSummsActivity::class.java )
+            val arrayList = arrayListOf(currentSummoner.name, currentSummoner.pictureURL, currentSummoner.region)
+            Log.e("intent", arrayList.toString())
+            intent.putExtra("info", arrayList)
+
+            Log.e("intent", intent.toString())
+            currentContext.startActivity(intent)
+        }
     }
 
-    fun refreshDataset() {
 
-    }
 
 }

@@ -59,6 +59,8 @@ dependencies {
     // Picasso
     implementation 'com.squareup.picasso:picasso:2.71828'
 
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+
     // ktor
     implementation "io.ktor:ktor-client-core:1.5.3"
     implementation "io.ktor:ktor-client-cio:1.5.3"

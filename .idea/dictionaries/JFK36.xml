@@ -2,6 +2,8 @@
   <dictionary name="JFK36">
     <words>
       <w>firestore</w>
+      <w>matchinfo</w>
+      <w>summs</w>
     </words>
   </dictionary>
 </component>
