@@ -24,6 +24,7 @@ class MainActivity : AppCompatActivity() {
 
         // setContentView(R.layout.activity_start)
         GlobalScope.launch {
+            
             val sharedPreferences = getSharedPreferences("Pref", Context.MODE_PRIVATE)
             val editor = sharedPreferences.edit()
             val patch = getPatch()

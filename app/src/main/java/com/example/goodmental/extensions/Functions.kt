@@ -58,7 +58,18 @@ suspend fun httpCallUrl(url : String): String? {
         client.close()
         val jsonArray = json.getJSONArray("matches")
         jsonArray.toString()
+    } catch (e: java.lang.Exception) {
+        null
+    }
+}
 
+suspend fun httpCallQuote(url : String) : JSONArray? {
+    return try {
+        val client = HttpClient()
+        val response : String = client.get(url)
+        val json  = JSONArray(response)
+        client.close()
+        json
     } catch (e: java.lang.Exception) {
         null
     }

@@ -19,6 +19,7 @@ import kotlinx.coroutines.*
 import com.example.goodmental.R
 import com.example.goodmental.extensions.logout
 import com.example.goodmental.extensions.refreshMatches
+import com.example.goodmental.ui.dialog.GoogleMapsDialog
 import com.example.goodmental.ui.match_info.MatchListAdapter
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -63,6 +64,8 @@ class SummonerFragment : Fragment() {
             playerName.text = document.data?.get("name") as String
             playerRegion.text = document.data?.get("region") as String
         }
+
+
 
         swipeRefreshLayout.setOnRefreshListener {
             runBlocking {
