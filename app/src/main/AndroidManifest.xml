@@ -28,6 +28,12 @@
         <activity
             android:name=".FollowedSummsActivity">
         </activity>
+        <activity
+            android:name=".AddGoalActivity">
+        </activity>
+        <activity
+            android:name=".ViewGoalActivity">
+        </activity>
     </application>
 
 </manifest>

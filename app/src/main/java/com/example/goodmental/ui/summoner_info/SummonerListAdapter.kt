@@ -61,11 +61,8 @@ class SummonerListAdapter : ListAdapter<Summoner, SummonerListAdapter.SummonerVi
         holder.itemView.setOnClickListener {
             val currentContext = holder.itemView.context
             val intent = Intent(currentContext, FollowedSummsActivity::class.java )
-            val arrayList = arrayListOf(currentSummoner.name, currentSummoner.pictureURL, currentSummoner.region)
-            Log.e("intent", arrayList.toString())
+            val arrayList = arrayListOf(currentSummoner.name, currentSummoner.pictureURL, currentSummoner.region, currentSummoner.matchLink)
             intent.putExtra("info", arrayList)
-
-            Log.e("intent", intent.toString())
             currentContext.startActivity(intent)
         }
     }

@@ -28,6 +28,6 @@ data class Match (val matchID : String,
                 null
             }
         }
-        private const val TAG = "Summoner"
+        private const val TAG = "Match"
     }
 }

@@ -12,7 +12,8 @@ import java.lang.Exception
 data class Summoner (val summonerID: String, /* Doc ID is actually summ id */
                      val name: String,
                      val pictureURL: String,
-                     val region: String) : Parcelable {
+                     val region: String,
+                     val matchLink : String) : Parcelable {
 
     companion object {
         fun DocumentSnapshot.toSummoner() : Summoner? {
@@ -20,7 +21,8 @@ data class Summoner (val summonerID: String, /* Doc ID is actually summ id */
                 val name = getString("name")!!
                 val pictureURL = getString("icon")!!
                 val region = getString("region")!!
-                Summoner(id, name, pictureURL, region)
+                val matchLink = getString("matchLink")!!
+                Summoner(id, name, pictureURL, region, matchLink)
             } catch (e: Exception) {
                 Log.e(TAG, "Error converting user profile", e)
                         FirebaseCrashlytics.getInstance().log("Error converting user profile")

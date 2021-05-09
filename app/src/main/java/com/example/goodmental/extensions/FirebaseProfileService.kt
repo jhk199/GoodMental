@@ -1,6 +1,8 @@
 package com.example.goodmental.extensions
 
 import android.util.Log
+import com.example.goodmental.ui.journal_info.Goal
+import com.example.goodmental.ui.journal_info.Goal.Companion.toGoal
 import com.example.goodmental.ui.match_info.Match
 import com.example.goodmental.ui.match_info.Match.Companion.toMatch
 import com.example.goodmental.ui.summoner_info.Summoner
@@ -52,7 +54,7 @@ object FirebaseProfileService {
         return try {
             db.collection("summoner").document("App User")
                     .collection("matches")
-                    .orderBy("timestamp", Query.Direction.DESCENDING)
+                    .orderBy("timeUnix", Query.Direction.DESCENDING)
                     .get()
                     .await()
                     .documents.mapNotNull {
@@ -67,12 +69,32 @@ object FirebaseProfileService {
         }
     }
 
+    suspend fun getGoals() : List<Goal> {
+        val db = FirebaseFirestore.getInstance()
+        return try {
+            db.collection("summoner").document("App User")
+                .collection("journal")
+                .orderBy("unixTime", Query.Direction.DESCENDING)
+                .get()
+                .await()
+                .documents.mapNotNull {
+                    it.toGoal()
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting user friends", e)
+            FirebaseCrashlytics.getInstance().log("Error getting user friends")
+            FirebaseCrashlytics.getInstance().setCustomKey("user id", "jhk199")
+            FirebaseCrashlytics.getInstance().recordException(e)
+            emptyList()
+        }
+    }
+
     suspend fun getFollowedMatches(id: String) : List<Match> {
         val db = FirebaseFirestore.getInstance()
         return try {
             val help = db.collection("summoner").document("App User").collection("followedSumms").document(id)
                     .collection("matches")
-                    .orderBy("timestamp", Query.Direction.DESCENDING)
+                    .orderBy("timeUnix", Query.Direction.DESCENDING)
                     .get()
                     .await()
                     .documents.mapNotNull {

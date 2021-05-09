@@ -6,19 +6,22 @@ import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
-import androidx.core.content.ContentProviderCompat.requireContext
+import com.google.android.gms.tasks.Task
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import io.ktor.client.*
 import io.ktor.client.request.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.AccessController.getContext
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.math.log
 
 /**
  * import com.example.goodmental.extensions.httpCall
@@ -96,50 +99,77 @@ fun getWinLoss(json : String, summonerName : String) : String? {
     }
 }
 
-suspend fun refreshMatches(preferences: SharedPreferences, name: String, region : String) {
+suspend fun refreshMatches(matchLink : String, name: String, region : String, patch : String, user : Boolean, login : DocumentReference) {
     val db = Firebase.firestore
-    val login = db.collection("summoner").document("App User")
-    login.collection("matches")
-        .get()
-        .addOnSuccessListener { result ->
-            for (document in result) {
-                if(document.id != "template") {
-                    login.collection("matches").document(document.id).delete()
+    try {
+        val matchCall = httpCallUrl(matchLink)
+        val match = matchCall?.let { stringToJsonArray(it) }
+        val BASE_URL = "https://p9hog00lo9.execute-api.us-west-1.amazonaws.com/gmapi/"
+        login.get().addOnSuccessListener {
+            val time = it.data?.get("latestGame") as Long
+            Log.e("time", time.toString())
+            if (match != null) {
+                GlobalScope.launch {
+                    for (i in 0 until 10) {
+                        val champion = getChamp(match.getJSONObject(i).getString("champion"))
+                        val gameID = match.getJSONObject(i).getString("gameId")
+                        val lane = match.getJSONObject(i).getString("lane")
+                        val timeUnix = match.getJSONObject(i).getString("timestamp")
+                        val timestamp = getDateTime(timeUnix)
+                        val timeUnixLong = timeUnix.toLong()
+                        val icon = "$DRAGON_URL/cdn/$patch/img/champion/$champion.png"
+                        val matchInfo = match.getJSONObject(i)?.getString("gameId")
+                        val gameJson =
+                            httpCall(BASE_URL, "matchinfo", regionToUrl(region), matchInfo)
+                        val winLoss = getWinLoss(gameJson.toString(), name)
+                        val userMatch = hashMapOf(
+                            "champion" to champion,
+                            "gameID" to gameID,
+                            "lane" to lane,
+                            "timestamp" to timestamp,
+                            "icon" to icon,
+                            "timeUnix" to timeUnixLong,
+                            "winLoss" to winLoss
+                        )
+                        if (time < timeUnixLong) {
+                            if (i == 0) {
+                                login.update("latestGame", timeUnixLong)
+                            }
+                            login.collection("matches").add(userMatch)
+                        } else {
+                            break
+                        }
+                    }
+                    db.collection("summoner")
+                        .document("App User")
+                        .get()
+                        .addOnSuccessListener { document ->
+                            val count = document.data?.get("count").toString().toInt()
+                            Log.e("Count", count.toString())
+                            if(count > 10) {
+                                val countDif = count - 10
+                                Log.e("countdif", countDif.toString())
+                                db.collection("summoner").document("App User")
+                                    .collection("matches")
+                                    .orderBy("gameID", Query.Direction.ASCENDING)
+                                    .limit((countDif).toLong())
+                                    .get().addOnSuccessListener { result ->
+                                        val count2 = countDif
+                                        for (doc in result) {
+                                            if (doc.id != "template") {
+                                                Log.e("data", doc.data.toString())
+                                                login.collection("matches").document(doc.id)
+                                                    .delete()
+                                                val countNew = count - 1
+                                            }
+                                        }
+                                        login.update("count", 10)
+                                    }
+                            }
+                    }
                 }
             }
         }
-        .addOnFailureListener { exception ->
-            Log.d("id", "Error getting documents: ", exception)
-        }
-    try {
-        val matchLink = preferences.getString("matchLink", "null")
-        val matchCall = httpCallUrl(matchLink.toString())
-        val match = matchCall?.let { stringToJsonArray(it) }
-        val patch = preferences.getString("patch", "null")
-        val BASE_URL = "https://p9hog00lo9.execute-api.us-west-1.amazonaws.com/gmapi/"
-        if (match != null) {
-            for (i in 0 until 10) {
-                val champion = getChamp(match.getJSONObject(i).getString("champion"))
-                val gameID =  match.getJSONObject(i).getString("gameId")
-                val lane = match.getJSONObject(i).getString("lane")
-                val timestamp = getDateTime(match.getJSONObject(i).getString("timestamp"))
-                val icon = "$DRAGON_URL/cdn/$patch/img/champion/$champion.png"
-                val matchInfo = match.getJSONObject(i)?.getString("gameId")
-                val gameJson = httpCall(BASE_URL, "matchinfo", regionToUrl(region), matchInfo)
-                val winLoss = getWinLoss(gameJson.toString(), name)
-                val userMatch = hashMapOf(
-                    "champion" to champion,
-                    "gameID" to gameID,
-                    "lane" to lane,
-                    "timestamp" to timestamp,
-                    "icon" to icon,
-                    "winLoss" to winLoss
-                )
-                db.collection("summoner").document("App User").collection("matches").document()
-                    .set(userMatch)
-            }
-        }
-
     } catch (e: Exception) {
         Log.e("ERROR", "ERROR")
     }
@@ -148,7 +178,7 @@ suspend fun refreshMatches(preferences: SharedPreferences, name: String, region 
 fun logout() {
     val db = Firebase.firestore
     val login = db.collection("summoner").document("App User")
-    login.update("icon", "", "name", "", "region", "", "matchUrl", "")
+    login.update("icon", "", "name", "", "region", "", "matchUrl", "", "latestGame", 0, "count", 0)
     login.collection("matches")
         .get()
         .addOnSuccessListener { result ->
@@ -165,8 +195,25 @@ fun logout() {
         .get()
         .addOnSuccessListener { result ->
             for (document in result) {
+                login.collection("followedSumms").document(document.id).collection("matches").get().addOnSuccessListener { result2 ->
+                    for(doc2 in result2) {
+                        login.collection("followedSumms").document(document.id).collection("matches").document(doc2.id).delete()
+                    }
+                }
                 if(document.id != "template") {
                     login.collection("followedSumms").document(document.id).delete()
+                }
+            }
+        }
+        .addOnFailureListener { exception ->
+            Log.d("id", "Error getting documents: ", exception)
+        }
+    login.collection("journal")
+        .get()
+        .addOnSuccessListener { result ->
+            for (document in result) {
+                if(document.id != "template") {
+                    login.collection("journal").document(document.id).delete()
                 }
             }
         }
@@ -176,21 +223,33 @@ fun logout() {
 
 }
 
-
-
-fun getMatches(jsonArray: JSONArray) : ArrayList<String> {
-    val matchList = ArrayList<String>()
-    for (i in 0 until jsonArray.length()) {
-        val match = jsonArray.getJSONObject(i).getString("gameId")
-        matchList.add(match)
+fun completeJournalEntry(unixTime : Long) {
+    val db = Firebase.firestore
+    val login = db.collection("summoner").document("App User").collection("journal")
+    login.get().addOnSuccessListener { result ->
+        for (document in result) {
+            if(document.data["unixTime"] == unixTime) {
+                login.document(document.id).delete()
+                break
+            }
+        }
     }
-    return matchList
 }
 
 
 fun getDateTime(s: String): String? {
     return try {
-        val sdf = SimpleDateFormat("MM/dd/yyyy : hh:mm aa")
+        val sdf = SimpleDateFormat("E, MM/dd/yyyy : hh:mm aa", Locale.US)
+        val netDate = Date(s.toLong() )
+        sdf.format(netDate)
+    } catch (e: Exception) {
+        e.toString()
+    }
+}
+
+fun getDateTimeLong(s : Long): String? {
+    return try {
+        val sdf = SimpleDateFormat("E, MM/dd/yyyy : hh:mm aa", Locale.US)
         val netDate = Date(s.toLong() )
         sdf.format(netDate)
     } catch (e: Exception) {

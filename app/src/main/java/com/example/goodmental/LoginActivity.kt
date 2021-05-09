@@ -8,14 +8,12 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.example.goodmental.extensions.*
-import com.example.goodmental.ui.dialog.GoogleMapsDialog
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import com.google.gson.JsonArray
 import io.ktor.client.*
 import io.ktor.client.request.*
 import kotlinx.coroutines.*
-import org.json.JSONObject
+import java.lang.IllegalArgumentException
 import java.util.*
 
 
@@ -68,61 +66,77 @@ class LoginActivity : AppCompatActivity() {
                         stringToJsonObject(
                             it
                         )
-                    }
-                    val name = summJson?.getString("name")
-                    val accountId = summJson?.getString("accountId")
-                    val icon = summJson?.getString("profileIconId")
+                    } ?: throw IllegalArgumentException("Summoner does not exist at all, or in that region")
+                    val name = summJson.getString("name")
+                    sharedPreferences.edit().putString("name", name).apply()
+                    val accountId = summJson.getString("accountId")
+                    val icon = summJson.getString("profileIconId")
                     val regionCall = regionArray[region]
                     val matchLink = "$BASE_URL/$matchUrl/$regionCall/$accountId"
                     val matchCall = httpCall(BASE_URL, matchUrl, regionArray[region], accountId)
-                    val match = matchCall?.let { stringToJsonArray(it) }
-                    if (match != null) {
-                        for (i in 0 until 10) {
-                            val champion = getChamp(match.getJSONObject(i).getString("champion"))
-                            val gameID =  match.getJSONObject(i).getString("gameId")
-                            val lane = match.getJSONObject(i).getString("lane")
-                            val timestamp = getDateTime(match.getJSONObject(i).getString("timestamp"))
-                            val icon = "$DRAGON_URL/cdn/$patch/img/champion/$champion.png"
-                            val matchInfo = match.getJSONObject(i)?.getString("gameId")
-                            val gameJson = httpCall(BASE_URL, matchInfoUrl, regionArray[region], matchInfo)
-                            val winLoss = getWinLoss(gameJson.toString(), name!!)
-                            val userMatch = hashMapOf(
-                                    "champion" to champion,
-                                    "gameID" to gameID,
-                                    "lane" to lane,
-                                    "timestamp" to timestamp,
-                                    "icon" to icon,
-                                    "winLoss" to winLoss
-                            )
-                            db.collection("summoner").document("App User").collection("matches").document()
-                                .set(userMatch)
-                        }
-                    }
-
+                        ?: throw IllegalArgumentException("Summoner does not have a valid match history")
+                    val match = stringToJsonArray(matchCall)
                     db.collection("summoner").document("App User")
-                        .update("name", name, "region", regionDisplay[region], "icon", icon)
+                        .update("name", name, "region", regionDisplay[region], "icon", icon,
+                            "matchLink", matchLink)
                         .addOnSuccessListener { documentReference ->
                             Log.d("Success", "DocumentSnapshot added with ID: $documentReference")
                         }
                         .addOnFailureListener { e ->
                             Log.w("Fail", "Error adding document", e)
                         }
+                    for (i in 0 until 10) {
+                        val champion = getChamp(match.getJSONObject(i).getString("champion"))
+                        val gameID =  match.getJSONObject(i).getString("gameId")
+                        val lane = match.getJSONObject(i).getString("lane")
+                        val timeUnix = match.getJSONObject(i).getString("timestamp")
+                        val timestamp = getDateTime(timeUnix)
+                        val timeUnixLong = timeUnix.toLong()
+                        val icon = "$DRAGON_URL/cdn/$patch/img/champion/$champion.png"
+                        val matchInfo = match.getJSONObject(i)?.getString("gameId")
+                        val gameJson = httpCall(BASE_URL, matchInfoUrl, regionArray[region], matchInfo)
+                        val winLoss = getWinLoss(gameJson.toString(), name)
+                        val userMatch = hashMapOf(
+                                "champion" to champion,
+                                "gameID" to gameID,
+                                "lane" to lane,
+                                "timestamp" to timestamp,
+                                "timeUnix" to timeUnixLong,
+                                "icon" to icon,
+                                "winLoss" to winLoss
+                        )
+                        if(i == 0) {
+                            db.collection("summoner").document("App User").update("latestGame", timeUnix.toLong())
+                        }
+                        db.collection("summoner").document("App User").collection("matches").document()
+                            .set(userMatch)
+                        db.collection("summoner")
+                            .document("App User")
+                            .get()
+                            .addOnSuccessListener { document ->
+                                val count = document.data?.get("count")
+                                val countInt = count.toString().toInt()
+                                db.collection("summoner").document("App User")
+                                    .update("count", countInt + 1)
+                        }
+                    }
                     sharedPreferences.edit().putString("patch", patch).apply()
-                    sharedPreferences.edit().putString("matchLink", matchLink).apply()
                     sharedPreferences.edit().putString("icon", icon).apply()
 
                     val intent = Intent(this@LoginActivity, SecondActivity::class.java)
                     startActivity(intent)
                     finish()
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        toastError("FUCK", this@LoginActivity)
-                    }
+                } catch (f: IllegalArgumentException) {
+//                    withContext(Dispatchers.Main) {
+//                        toastError("FUCK", this@LoginActivity)
+//                    }
+                    Log.e("help", f.toString().substringAfter(':'))
 
                     runOnUiThread {
                         run() {
+                            val error = f.toString().substringAfter(':')
                             errorText.visibility = View.VISIBLE
-                            errorText.text = "PLEASE ENTER A VALID SUMMONER OR REGION"
+                            errorText.text = "Error:$error"
                             summonerName.text.clear()
 
                             summonerName.visibility = View.VISIBLE
