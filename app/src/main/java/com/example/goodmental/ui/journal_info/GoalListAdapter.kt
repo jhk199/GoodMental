@@ -64,9 +64,7 @@ class GoalListAdapter : ListAdapter<Goal, GoalListAdapter.GoalViewHolder>(GoalCo
             val intent = Intent(currentContext, ViewGoalActivity::class.java )
             val arrayList = arrayListOf(currentGoal.name, currentGoal.pictureURL,
                 currentGoal.date, currentGoal.content, currentGoal.unixTime.toString())
-            Log.e("intent", arrayList.toString())
             intent.putExtra("info", arrayList)
-            Log.e("intent", intent.toString())
             currentContext.startActivity(intent)
         }
     }
